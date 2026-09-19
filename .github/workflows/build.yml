@@ -1,1 +1,65 @@
+name: Build Luac0re Save
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ps2/**'
+      - '.github/workflows/build-luac0re-save.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      PS2DEV: /usr/local/ps2dev
+      PS2SDK: /usr/local/ps2dev/ps2sdk
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show repository layout (debug)
+        run: |
+          echo "--- top level ---"
+          ls -la
+          echo "--- ps2 ---"
+          ls -la ps2 || true
+          echo "--- ps2/shellcode ---"
+          ls -la ps2/shellcode || true
+
+      - name: Install precompiled ps2dev toolchain
+        run: |
+          sudo mkdir -p "$PS2DEV"
+          sudo chown -R "$USER" "$PS2DEV"
+          curl -o ps2dev-latest.tar.gz -LC - \
+            https://github.com/ps2dev/ps2dev/releases/download/latest/ps2dev-ubuntu-latest.tar.gz
+          tar -xf ps2dev-latest.tar.gz --strip-components 1 -C "$PS2DEV"
+          rm ps2dev-latest.tar.gz
+          echo "--- installed tree ---"
+          ls "$PS2DEV"
+
+      - name: Build PS2 shellcode
+        working-directory: ps2/shellcode
+        run: |
+          export PATH="$PS2DEV/bin:$PS2DEV/ee/bin:$PS2DEV/iop/bin:$PS2DEV/dvp/bin:$PS2SDK/bin:$PATH"
+          make
+          ls -l shellcode.bin
+
+      - name: Copy shellcode.bin into ps2 folder
+        run: cp ps2/shellcode/shellcode.bin ps2/shellcode.bin
+
+      - name: Run savecraft.py
+        working-directory: ps2
+        run: python3 savecraft.py
+
+      - name: Upload crafted saves
+        uses: actions/upload-artifact@v4
+        with:
+          name: luac0re-saves
+          path: |
+            ps2/BASLUS-20268
+            ps2/BESLES-50366
+            ps2/BASLUS-20268.psu
+            ps2/BESLES-50366.psu
 
